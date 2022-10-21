@@ -84,6 +84,22 @@ func (w *responseWriter) Write(p []byte) (int, error) {
 	}
 	if !bodyAllowedForStatus(w.status) {
 		return 0, http.ErrBodyNotAllowed
+	} else {
+		// If no content type, apply sniffing algorithm to body.
+		_, haveType := w.header["Content-Type"]
+
+		// If the Content-Encoding was set and is non-blank,
+		// we shouldn't sniff the body.
+		ce := w.header.Get("Content-Encoding")
+		hasCE := len(ce) > 0
+
+		te := w.header.Get("Transfer-Encoding")
+		hasTE := te != ""
+		if !hasCE && !haveType && !hasTE && len(p) > 0 {
+			_, _ = w.bufferedStr.WriteString("Content-Type: ")
+			_, _ = w.bufferedStr.WriteString(http.DetectContentType(p))
+			_, _ = w.bufferedStr.WriteString("\r\n")
+		}
 	}
 	df := &dataFrame{Length: uint64(len(p))}
 	w.buf = w.buf[:0]
